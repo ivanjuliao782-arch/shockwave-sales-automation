@@ -252,7 +252,10 @@ style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px sol
 </div>
 {/* WhatsApp Button */}
 <div className="col-span-1 text-right flex justify-end">
-<button className="p-2 bg-[#25d366]/5 border border-[#25d366]/10 rounded-lg text-[#25d366] hover:bg-[#25d366] hover:text-white transition-all shadow-lg active:scale-95 group-hover:shadow-[#25d366]/20">
+<button 
+  onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\D/g, '')}`, '_blank')}
+  className="p-2 bg-[#25d366]/5 border border-[#25d366]/10 rounded-lg text-[#25d366] hover:bg-[#25d366] hover:text-white transition-all shadow-lg active:scale-95 group-hover:shadow-[#25d366]/20"
+>
 <MessageCircle size={14} className="fill-current" />
 </button>
 </div>

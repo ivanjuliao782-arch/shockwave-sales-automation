@@ -156,7 +156,7 @@ immersionMode
 <span className="text-[9px] font-black uppercase tracking-tighter">MODO IMERSÃO</span>
 </button>
 <div className="h-8 w-[1px] bg-white/5 flex-shrink-0 mx-2" />
-<button className="relative p-2 text-white/30 hover:text-white transition-colors flex-shrink-0">
+<button onClick={() => alert("Central de Notificações (Em breve)")} className="relative p-2 text-white/30 hover:text-white transition-colors flex-shrink-0">
 <Bell size={18} />
 <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-brand-primary rounded-full animate-pulse" />
 </button>
