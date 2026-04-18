@@ -1,0 +1,6 @@
+{
+"name": "Shockwave Sales Automation",
+"description": "Elite legal automation system for BPC/LOAS operations with 3D cinematic interface and AI processing.",
+"requestFramePermissions": ["geolocation", "fullscreen"],
+"majorCapabilities": []
+}
