@@ -274,13 +274,21 @@ style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px sol
 Aqui você poderá configurar os limites de processamento, chaves de API do agente Shockwave e parâmetros globais do CRM BPC/LOAS.
 </p>
 <div className="grid grid-cols-2 gap-4">
-<div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-left">
-<span className="text-[10px] uppercase font-black text-brand-primary tracking-widest mb-2 block">Agent AI</span>
-<p className="text-xs text-white/60">Configurações de raciocínio e temperatura dos modelos LLM.</p>
+<div className="p-6 bg-green-500/5 rounded-2xl border border-green-500/30 text-left relative overflow-hidden hover:border-green-500/50 transition-colors">
+<div className="absolute top-6 right-6 flex items-center gap-2">
+<span className="text-[9px] font-bold text-green-400 uppercase tracking-widest">Ativo</span>
+<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]" />
 </div>
-<div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-left">
-<span className="text-[10px] uppercase font-black text-brand-primary tracking-widest mb-2 block">CRM Sync</span>
-<p className="text-xs text-white/60">Integração de Webhooks e notificações do WhatsApp.</p>
+<span className="text-[10px] uppercase font-black text-green-400 tracking-widest mb-2 block">Agent AI</span>
+<p className="text-xs text-white/60 pr-12">Configurações de raciocínio e temperatura dos modelos LLM.</p>
+</div>
+<div className="p-6 bg-green-500/5 rounded-2xl border border-green-500/30 text-left relative overflow-hidden hover:border-green-500/50 transition-colors">
+<div className="absolute top-6 right-6 flex items-center gap-2">
+<span className="text-[9px] font-bold text-green-400 uppercase tracking-widest">Ativo</span>
+<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]" />
+</div>
+<span className="text-[10px] uppercase font-black text-green-400 tracking-widest mb-2 block">CRM Sync</span>
+<p className="text-xs text-white/60 pr-12">Integração de Webhooks e notificações do WhatsApp.</p>
 </div>
 </div>
 </div>
