@@ -5,10 +5,49 @@ import { Sidebar, Header } from './components/layout/Shell';
 import { WorkflowEditor } from './components/workflow/WorkflowEditor';
 import { Filter, Minimize, X, Code2, Cpu, UserCheck, AlertCircle, TrendingUp, ShieldAlert, Hourglass, MessageCircle, Settings } from 'lucide-react';
 import { cn } from './lib/utils';
+import { supabase } from './lib/supabase';
 export default function App() {
 const { currentView, immersionMode, setImmersionMode, selectedNode, setSelectedNode } = useStore();
 const [systemLogs, setSystemLogs] = useState<string[]>([]);
 const [crmFilter, setCrmFilter] = useState<'all' | 'alto' | 'baixo' | 'inelegivel' | 'triagem'>('all');
+const [leads, setLeads] = useState<any[]>([]);
+
+useEffect(() => {
+  // 1. Fetch inicial dos leads do banco
+  const fetchLeads = async () => {
+    const { data, error } = await supabase
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Erro ao buscar leads:', error.message);
+    } else if (data) {
+      setLeads(data);
+    }
+  };
+  
+  fetchLeads();
+
+  // 2. Configuração do Realtime (WebSockets)
+  const channel = supabase
+    .channel('leads-realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
+      console.log('Realtime Update:', payload);
+      if (payload.eventType === 'INSERT') {
+        setLeads(prev => [payload.new, ...prev]);
+      } else if (payload.eventType === 'UPDATE') {
+        setLeads(prev => prev.map(l => l.id === payload.new.id ? payload.new : l));
+      } else if (payload.eventType === 'DELETE') {
+        setLeads(prev => prev.filter(l => l.id === payload.old.id));
+      }
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, []);
 useEffect(() => {
 const logInterval = setInterval(() => {
 const logs = [
@@ -175,35 +214,34 @@ Filtro Ativo: {crmFilter === 'all' ? 'Todos' : crmFilter === 'alto' ? 'Ticket Al
 </div>
 {/* Card List */}
 <div className="space-y-2 mt-4">
-{[
-{ name: 'Aguardando consulta', phone: '+7078549027', cpf: '---.---.---', status: 'Em triagem', color: '#a855f7', income: '---', date: '16/04/2026', time: '13:39:08' },
-{ name: 'Aguardando consulta', phone: '+1242579505', cpf: '---.---.---', status: 'Em triagem', color: '#a855f7', income: '---', date: '16/04/2026', time: '13:14:37' },
-{ name: 'Ricardo Santos', phone: '+5511998877', cpf: '123.456.789', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 8.000,00', date: '16/04/2026', time: '11:45:30' },
-{ name: 'Maria Oliveira', phone: '+5521991234', cpf: '456.789.012', status: 'Ticket BAIXO', color: '#f59e0b', income: 'R$ 1.200,00', date: '16/04/2026', time: '10:15:44' },
-{ name: 'João Pereira', phone: '+5531988123', cpf: '---.---.---', status: 'Inelegível', color: '#ef4444', income: '---', date: '16/04/2026', time: '09:44:12' },
-{ name: 'Wagner Moura', phone: '+5571999887', cpf: '789.012.345', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 12.000,00', date: '15/04/2026', time: '21:30:45' },
-{ name: 'Tais Araújo', phone: '+5571988776', cpf: '321.654.987', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 7.500,00', date: '15/04/2026', time: '20:15:33' },
-{ name: 'Roberto Carlos', phone: '+5511912345', cpf: '111.000.111', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 45.000,00', date: '15/04/2026', time: '19:44:55' },
-].filter(lead => {
+{leads.filter(lead => {
 if (crmFilter === 'all') return true;
-if (crmFilter === 'alto') return lead.status === 'Ticket ALTO';
-if (crmFilter === 'baixo') return lead.status === 'Ticket BAIXO';
-if (crmFilter === 'inelegivel') return lead.status === 'Inelegível';
-if (crmFilter === 'triagem') return lead.status === 'Em triagem';
+const statusLower = lead.status.toLowerCase();
+if (crmFilter === 'alto') return statusLower === 'ticket alto';
+if (crmFilter === 'baixo') return statusLower === 'ticket baixo';
+if (crmFilter === 'inelegivel') return statusLower === 'inelegível';
+if (crmFilter === 'triagem') return statusLower === 'em triagem';
 return true;
-}).map((lead, i) => (
+}).map((lead, i) => {
+  const dateObj = new Date(lead.created_at);
+  const formattedDate = dateObj.toLocaleDateString('pt-BR');
+  const formattedTime = dateObj.toLocaleTimeString('pt-BR');
+  const statusUpper = lead.status.toUpperCase();
+  const isTicketAlto = statusUpper === 'TICKET ALTO';
+
+  return (
 <motion.div
-key={i}
+key={lead.id}
 initial={{ opacity: 0, x: -10 }}
 animate={{ opacity: 1, x: 0 }}
 transition={{ delay: i * 0.03 }}
 className={cn(
 "bg-white/[0.02] border border-white/5 rounded-xl px-8 py-3 hover:bg-white/[0.05] hover:border-white/10 transition-all group relative overflow-hidden",
-lead.status === 'Ticket ALTO' && "border-green-500/40 bg-green-500/[0.03]"
+isTicketAlto && "border-green-500/40 bg-green-500/[0.03]"
 )}
 >
 {/* Pulse Effect for Ticket Alto */}
-{lead.status === 'Ticket ALTO' && (
+{isTicketAlto && (
 <motion.div
 animate={{
 opacity: [0.1, 0.4, 0.1],
@@ -224,7 +262,7 @@ className="absolute inset-0 bg-green-500/10 pointer-events-none"
 <div className="min-w-0">
 <p className="text-sm font-bold text-white group-hover:text-brand-primary transition-colors truncate">{lead.name}</p>
 <p className="text-[10px] text-white/20 font-mono flex items-center gap-1.5">
-<span className="opacity-50">CPF:</span> {lead.cpf}
+<span className="opacity-50">CPF:</span> {lead.cpf || '---.---.---'}
 </p>
 </div>
 </div>
@@ -235,20 +273,20 @@ className="px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider f
 style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px solid ${lead.color}25` }}
 >
 <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: lead.color }} />
-{lead.status === 'Ticket ALTO' ? 'ALTO' : lead.status === 'Ticket BAIXO' ? 'BAIXO' : lead.status.toUpperCase()}
+{statusUpper === 'TICKET ALTO' ? 'ALTO' : statusUpper === 'TICKET BAIXO' ? 'BAIXO' : statusUpper}
 </span>
 </div>
 {/* Renda */}
 <div className="col-span-2 text-center">
-<span className="text-xs font-bold text-white/40 font-mono tracking-tighter">{lead.income}</span>
+<span className="text-xs font-bold text-white/40 font-mono tracking-tighter">{lead.income_formatted || '---'}</span>
 </div>
 {/* Data */}
 <div className="col-span-2 text-center text-[10px] font-bold text-white/30 whitespace-nowrap">
-{lead.date}
+{formattedDate}
 </div>
 {/* Hora */}
 <div className="col-span-2 text-center text-[10px] text-white/10 font-mono">
-{lead.time}
+{formattedTime}
 </div>
 {/* WhatsApp Button */}
 <div className="col-span-1 text-right flex justify-end">
@@ -261,7 +299,8 @@ style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px sol
 </div>
 </div>
 </motion.div>
-))}
+);
+})}
 </div>
 </div>
 </div>
