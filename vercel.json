@@ -1,13 +1,8 @@
 {
-  "functions": {
-    "api/*.js": {
-      "runtime": "vercel-node@latest"
-    }
-  },
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1.js"
+      "source": "/api/(.*)",
+      "destination": "/api/webhook"
     }
   ]
 }
