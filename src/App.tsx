@@ -7,9 +7,41 @@ import { Filter, Minimize, X, Code2, Cpu, UserCheck, AlertCircle, TrendingUp, Sh
 import { cn } from './lib/utils';
 export default function App() {
 const { currentView, immersionMode, setImmersionMode, selectedNode, setSelectedNode } = useStore();
-const [systemLogs, setSystemLogs] = useState<string[]>([]);
-const [crmFilter, setCrmFilter] = useState<'all' | 'alto' | 'baixo' | 'inelegivel' | 'triagem'>('all');
-useEffect(() => {
+  const [leads, setLeads] = useState<any[]>([]);
+
+  useEffect(() => {
+    // 1. Fetch inicial dos leads do banco
+    const fetchLeads = async () => {
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*')
+        .order('updated_at', { ascending: false });
+      
+      if (!error && data) {
+        setLeads(data);
+      }
+    };
+    
+    fetchLeads();
+
+    // 2. Realtime Updates
+    const channel = supabase
+      .channel('leads-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setLeads(prev => [payload.new, ...prev]);
+        } else if (payload.eventType === 'UPDATE') {
+          setLeads(prev => prev.map(l => l.phone === payload.new.phone ? payload.new : l));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
 const logInterval = setInterval(() => {
 const logs = [
 '[SEC] DATA ENCRYPTION: ACTIVE',
@@ -162,7 +194,7 @@ crmFilter === 'inelegivel' ? "bg-red-500/20 text-red-400 border border-red-500/5
 Filtro Ativo: {crmFilter === 'all' ? 'Todos' : crmFilter === 'alto' ? 'Ticket Alto' : crmFilter === 'baixo' ? 'Ticket Baixo' : crmFilter === 'triagem' ? 'Em triagem' : 'Inelegíveis'}
 </span>
 </div>
-<span className="text-xs text-white/20 font-bold uppercase tracking-widest">10 leads exibidos</span>
+<span className="text-xs text-white/20 font-bold uppercase tracking-widest">{leads.length} leads exibidos</span>
 </div>
 {/* Header Labels - Alinhamento Rigoroso */}
 <div className="grid grid-cols-12 gap-0 px-8 py-4 text-[10px] font-black text-white/10 uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.01]">
@@ -175,23 +207,19 @@ Filtro Ativo: {crmFilter === 'all' ? 'Todos' : crmFilter === 'alto' ? 'Ticket Al
 </div>
 {/* Card List */}
 <div className="space-y-2 mt-4">
-{[
-{ name: 'Aguardando consulta', phone: '+7078549027', cpf: '---.---.---', status: 'Em triagem', color: '#a855f7', income: '---', date: '16/04/2026', time: '13:39:08' },
-{ name: 'Aguardando consulta', phone: '+1242579505', cpf: '---.---.---', status: 'Em triagem', color: '#a855f7', income: '---', date: '16/04/2026', time: '13:14:37' },
-{ name: 'Ricardo Santos', phone: '+5511998877', cpf: '123.456.789', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 8.000,00', date: '16/04/2026', time: '11:45:30' },
-{ name: 'Maria Oliveira', phone: '+5521991234', cpf: '456.789.012', status: 'Ticket BAIXO', color: '#f59e0b', income: 'R$ 1.200,00', date: '16/04/2026', time: '10:15:44' },
-{ name: 'João Pereira', phone: '+5531988123', cpf: '---.---.---', status: 'Inelegível', color: '#ef4444', income: '---', date: '16/04/2026', time: '09:44:12' },
-{ name: 'Wagner Moura', phone: '+5571999887', cpf: '789.012.345', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 12.000,00', date: '15/04/2026', time: '21:30:45' },
-{ name: 'Tais Araújo', phone: '+5571988776', cpf: '321.654.987', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 7.500,00', date: '15/04/2026', time: '20:15:33' },
-{ name: 'Roberto Carlos', phone: '+5511912345', cpf: '111.000.111', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 45.000,00', date: '15/04/2026', time: '19:44:55' },
-].filter(lead => {
+{leads.filter(lead => {
 if (crmFilter === 'all') return true;
-if (crmFilter === 'alto') return lead.status === 'Ticket ALTO';
-if (crmFilter === 'baixo') return lead.status === 'Ticket BAIXO';
-if (crmFilter === 'inelegivel') return lead.status === 'Inelegível';
-if (crmFilter === 'triagem') return lead.status === 'Em triagem';
+const statusLower = lead.status.toLowerCase();
+if (crmFilter === 'alto') return statusLower.includes('alto');
+if (crmFilter === 'baixo') return statusLower.includes('baixo');
+if (crmFilter === 'inelegivel') return statusLower.includes('inelegível');
+if (crmFilter === 'triagem') return statusLower.includes('triagem');
 return true;
-}).map((lead, i) => (
+}).map((lead, i) => {
+    const dateObj = new Date(lead.updated_at || lead.created_at);
+    const formattedDate = dateObj.toLocaleDateString('pt-BR');
+    const formattedTime = dateObj.toLocaleTimeString('pt-BR');
+    return (
 <motion.div
 key={i}
 initial={{ opacity: 0, x: -10 }}
