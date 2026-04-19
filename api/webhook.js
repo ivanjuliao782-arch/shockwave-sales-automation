@@ -1,10 +1,10 @@
-const { createClient } = require('@supabase/supabase-js');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { createClient } from '@supabase/supabase-js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
     const { remoteJid, pushName, text } = req.body;
@@ -31,7 +31,7 @@ module.exports = async (req, res) => {
             updated_at: new Date().toISOString()
         }, { onConflict: 'phone' });
 
-        // 3. Salva Resposta na Fila (Para o robô local pegar)
+        // 3. Salva Resposta na Fila
         await supabase.from('pending_messages').insert({
             to_jid: remoteJid,
             message_text: responseText
@@ -42,4 +42,4 @@ module.exports = async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-};
+}
