@@ -5,49 +5,10 @@ import { Sidebar, Header } from './components/layout/Shell';
 import { WorkflowEditor } from './components/workflow/WorkflowEditor';
 import { Filter, Minimize, X, Code2, Cpu, UserCheck, AlertCircle, TrendingUp, ShieldAlert, Hourglass, MessageCircle, Settings } from 'lucide-react';
 import { cn } from './lib/utils';
-import { supabase } from './lib/supabase';
 export default function App() {
 const { currentView, immersionMode, setImmersionMode, selectedNode, setSelectedNode } = useStore();
 const [systemLogs, setSystemLogs] = useState<string[]>([]);
 const [crmFilter, setCrmFilter] = useState<'all' | 'alto' | 'baixo' | 'inelegivel' | 'triagem'>('all');
-const [leads, setLeads] = useState<any[]>([]);
-
-useEffect(() => {
-  // 1. Fetch inicial dos leads do banco
-  const fetchLeads = async () => {
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error('Erro ao buscar leads:', error.message);
-    } else if (data) {
-      setLeads(data);
-    }
-  };
-  
-  fetchLeads();
-
-  // 2. Configuração do Realtime (WebSockets)
-  const channel = supabase
-    .channel('leads-realtime')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, (payload) => {
-      console.log('Realtime Update:', payload);
-      if (payload.eventType === 'INSERT') {
-        setLeads(prev => [payload.new, ...prev]);
-      } else if (payload.eventType === 'UPDATE') {
-        setLeads(prev => prev.map(l => l.id === payload.new.id ? payload.new : l));
-      } else if (payload.eventType === 'DELETE') {
-        setLeads(prev => prev.filter(l => l.id === payload.old.id));
-      }
-    })
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, []);
 useEffect(() => {
 const logInterval = setInterval(() => {
 const logs = [
@@ -214,34 +175,35 @@ Filtro Ativo: {crmFilter === 'all' ? 'Todos' : crmFilter === 'alto' ? 'Ticket Al
 </div>
 {/* Card List */}
 <div className="space-y-2 mt-4">
-{leads.filter(lead => {
+{[
+{ name: 'Aguardando consulta', phone: '+7078549027', cpf: '---.---.---', status: 'Em triagem', color: '#a855f7', income: '---', date: '16/04/2026', time: '13:39:08' },
+{ name: 'Aguardando consulta', phone: '+1242579505', cpf: '---.---.---', status: 'Em triagem', color: '#a855f7', income: '---', date: '16/04/2026', time: '13:14:37' },
+{ name: 'Ricardo Santos', phone: '+5511998877', cpf: '123.456.789', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 8.000,00', date: '16/04/2026', time: '11:45:30' },
+{ name: 'Maria Oliveira', phone: '+5521991234', cpf: '456.789.012', status: 'Ticket BAIXO', color: '#f59e0b', income: 'R$ 1.200,00', date: '16/04/2026', time: '10:15:44' },
+{ name: 'João Pereira', phone: '+5531988123', cpf: '---.---.---', status: 'Inelegível', color: '#ef4444', income: '---', date: '16/04/2026', time: '09:44:12' },
+{ name: 'Wagner Moura', phone: '+5571999887', cpf: '789.012.345', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 12.000,00', date: '15/04/2026', time: '21:30:45' },
+{ name: 'Tais Araújo', phone: '+5571988776', cpf: '321.654.987', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 7.500,00', date: '15/04/2026', time: '20:15:33' },
+{ name: 'Roberto Carlos', phone: '+5511912345', cpf: '111.000.111', status: 'Ticket ALTO', color: '#10b981', income: 'R$ 45.000,00', date: '15/04/2026', time: '19:44:55' },
+].filter(lead => {
 if (crmFilter === 'all') return true;
-const statusLower = lead.status.toLowerCase();
-if (crmFilter === 'alto') return statusLower === 'ticket alto';
-if (crmFilter === 'baixo') return statusLower === 'ticket baixo';
-if (crmFilter === 'inelegivel') return statusLower === 'inelegível';
-if (crmFilter === 'triagem') return statusLower === 'em triagem';
+if (crmFilter === 'alto') return lead.status === 'Ticket ALTO';
+if (crmFilter === 'baixo') return lead.status === 'Ticket BAIXO';
+if (crmFilter === 'inelegivel') return lead.status === 'Inelegível';
+if (crmFilter === 'triagem') return lead.status === 'Em triagem';
 return true;
-}).map((lead, i) => {
-  const dateObj = new Date(lead.created_at);
-  const formattedDate = dateObj.toLocaleDateString('pt-BR');
-  const formattedTime = dateObj.toLocaleTimeString('pt-BR');
-  const statusUpper = lead.status.toUpperCase();
-  const isTicketAlto = statusUpper === 'TICKET ALTO';
-
-  return (
+}).map((lead, i) => (
 <motion.div
-key={lead.id}
+key={i}
 initial={{ opacity: 0, x: -10 }}
 animate={{ opacity: 1, x: 0 }}
 transition={{ delay: i * 0.03 }}
 className={cn(
 "bg-white/[0.02] border border-white/5 rounded-xl px-8 py-3 hover:bg-white/[0.05] hover:border-white/10 transition-all group relative overflow-hidden",
-isTicketAlto && "border-green-500/40 bg-green-500/[0.03]"
+lead.status === 'Ticket ALTO' && "border-green-500/40 bg-green-500/[0.03]"
 )}
 >
 {/* Pulse Effect for Ticket Alto */}
-{isTicketAlto && (
+{lead.status === 'Ticket ALTO' && (
 <motion.div
 animate={{
 opacity: [0.1, 0.4, 0.1],
@@ -262,7 +224,7 @@ className="absolute inset-0 bg-green-500/10 pointer-events-none"
 <div className="min-w-0">
 <p className="text-sm font-bold text-white group-hover:text-brand-primary transition-colors truncate">{lead.name}</p>
 <p className="text-[10px] text-white/20 font-mono flex items-center gap-1.5">
-<span className="opacity-50">CPF:</span> {lead.cpf || '---.---.---'}
+<span className="opacity-50">CPF:</span> {lead.cpf}
 </p>
 </div>
 </div>
@@ -273,34 +235,30 @@ className="px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider f
 style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px solid ${lead.color}25` }}
 >
 <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: lead.color }} />
-{statusUpper === 'TICKET ALTO' ? 'ALTO' : statusUpper === 'TICKET BAIXO' ? 'BAIXO' : statusUpper}
+{lead.status === 'Ticket ALTO' ? 'ALTO' : lead.status === 'Ticket BAIXO' ? 'BAIXO' : lead.status.toUpperCase()}
 </span>
 </div>
 {/* Renda */}
 <div className="col-span-2 text-center">
-<span className="text-xs font-bold text-white/40 font-mono tracking-tighter">{lead.income_formatted || '---'}</span>
+<span className="text-xs font-bold text-white/40 font-mono tracking-tighter">{lead.income}</span>
 </div>
 {/* Data */}
 <div className="col-span-2 text-center text-[10px] font-bold text-white/30 whitespace-nowrap">
-{formattedDate}
+{lead.date}
 </div>
 {/* Hora */}
 <div className="col-span-2 text-center text-[10px] text-white/10 font-mono">
-{formattedTime}
+{lead.time}
 </div>
 {/* WhatsApp Button */}
 <div className="col-span-1 text-right flex justify-end">
-<button 
-  onClick={() => window.open(`https://wa.me/${lead.phone.replace(/\D/g, '')}`, '_blank')}
-  className="p-2 bg-[#25d366]/5 border border-[#25d366]/10 rounded-lg text-[#25d366] hover:bg-[#25d366] hover:text-white transition-all shadow-lg active:scale-95 group-hover:shadow-[#25d366]/20"
->
+<button className="p-2 bg-[#25d366]/5 border border-[#25d366]/10 rounded-lg text-[#25d366] hover:bg-[#25d366] hover:text-white transition-all shadow-lg active:scale-95 group-hover:shadow-[#25d366]/20">
 <MessageCircle size={14} className="fill-current" />
 </button>
 </div>
 </div>
 </motion.div>
-);
-})}
+))}
 </div>
 </div>
 </div>
@@ -316,21 +274,13 @@ style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px sol
 Aqui você poderá configurar os limites de processamento, chaves de API do agente Shockwave e parâmetros globais do CRM BPC/LOAS.
 </p>
 <div className="grid grid-cols-2 gap-4">
-<div className="p-6 bg-green-500/5 rounded-2xl border border-green-500/30 text-left relative overflow-hidden hover:border-green-500/50 transition-colors">
-<div className="absolute top-6 right-6 flex items-center gap-2">
-<span className="text-[9px] font-bold text-green-400 uppercase tracking-widest">Ativo</span>
-<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]" />
+<div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-left">
+<span className="text-[10px] uppercase font-black text-brand-primary tracking-widest mb-2 block">Agent AI</span>
+<p className="text-xs text-white/60">Configurações de raciocínio e temperatura dos modelos LLM.</p>
 </div>
-<span className="text-[10px] uppercase font-black text-green-400 tracking-widest mb-2 block">Agent AI</span>
-<p className="text-xs text-white/60 pr-12">Configurações de raciocínio e temperatura dos modelos LLM.</p>
-</div>
-<div className="p-6 bg-green-500/5 rounded-2xl border border-green-500/30 text-left relative overflow-hidden hover:border-green-500/50 transition-colors">
-<div className="absolute top-6 right-6 flex items-center gap-2">
-<span className="text-[9px] font-bold text-green-400 uppercase tracking-widest">Ativo</span>
-<div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]" />
-</div>
-<span className="text-[10px] uppercase font-black text-green-400 tracking-widest mb-2 block">CRM Sync</span>
-<p className="text-xs text-white/60 pr-12">Integração de Webhooks e notificações do WhatsApp.</p>
+<div className="p-6 bg-white/5 rounded-2xl border border-white/10 text-left">
+<span className="text-[10px] uppercase font-black text-brand-primary tracking-widest mb-2 block">CRM Sync</span>
+<p className="text-xs text-white/60">Integração de Webhooks e notificações do WhatsApp.</p>
 </div>
 </div>
 </div>
