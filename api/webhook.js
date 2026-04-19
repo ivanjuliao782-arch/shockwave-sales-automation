@@ -1,16 +1,27 @@
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).send('Method Not Allowed');
 
     const { remoteJid, pushName, text } = req.body;
-    if (!remoteJid || !text) return res.status(400).send('Missing data');
+    
+    // Log para depuração na Vercel
+    console.log('--- INICIO PROCESSAMENTO ---');
+    console.log('Lead:', pushName, remoteJid);
 
     try {
+        const supabaseUrl = process.env.VITE_SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const geminiKey = process.env.GEMINI_API_KEY;
+
+        if (!supabaseUrl || !supabaseKey || !geminiKey) {
+            throw new Error('Faltam variáveis de ambiente (Chaves API) na Vercel.');
+        }
+
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const genAI = new GoogleGenerativeAI(geminiKey);
+
         // 1. IA Pensa
         const model = genAI.getGenerativeModel({ model: "gemini-pro" });
         const prompt = `Você é o Ivan Julião, SDR de elite da advocacia previdenciária.
@@ -37,9 +48,11 @@ export default async function handler(req, res) {
             message_text: responseText
         });
 
-        res.status(200).json({ success: true });
+        console.log('Sucesso: Resposta gerada e lead salvo.');
+        res.status(200).json({ success: true, reply: responseText });
 
     } catch (error) {
+        console.error('ERRO WEBHOOK:', error.message);
         res.status(500).json({ error: error.message });
     }
 }
