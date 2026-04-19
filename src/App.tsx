@@ -5,9 +5,13 @@ import { Sidebar, Header } from './components/layout/Shell';
 import { WorkflowEditor } from './components/workflow/WorkflowEditor';
 import { Filter, Minimize, X, Code2, Cpu, UserCheck, AlertCircle, TrendingUp, ShieldAlert, Hourglass, MessageCircle, Settings } from 'lucide-react';
 import { cn } from './lib/utils';
+import { supabase } from './lib/supabase';
+
 export default function App() {
-const { currentView, immersionMode, setImmersionMode, selectedNode, setSelectedNode } = useStore();
+  const { currentView, immersionMode, setImmersionMode, selectedNode, setSelectedNode } = useStore();
   const [leads, setLeads] = useState<any[]>([]);
+  const [crmFilter, setCrmFilter] = useState<'all' | 'alto' | 'baixo' | 'triagem' | 'inelegivel'>('all');
+  const [systemLogs, setSystemLogs] = useState<string[]>([]);
 
   useEffect(() => {
     // 1. Fetch inicial dos leads do banco
@@ -60,7 +64,7 @@ clearInterval(logInterval);
 return (
 <div className="flex h-screen w-screen bg-[#020205] text-white">
 <Sidebar />
-<main className="flex-1 flex flex-col relative overflow-hidden bg-[#020205]">
+<main className="flex-1 flex flex-col relative overflow-hidden bg-[#020205] pb-16 md:pb-0">
 <Header />
 <div className={cn(
 "flex-1 relative bg-[#020205]",
@@ -196,15 +200,15 @@ Filtro Ativo: {crmFilter === 'all' ? 'Todos' : crmFilter === 'alto' ? 'Ticket Al
 </div>
 <span className="text-xs text-white/20 font-bold uppercase tracking-widest">{leads.length} leads exibidos</span>
 </div>
-{/* Header Labels - Alinhamento Rigoroso */}
-<div className="grid grid-cols-12 gap-0 px-8 py-4 text-[10px] font-black text-white/10 uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.01]">
-<div className="col-span-3">Identificação</div>
-<div className="col-span-2 text-center">Ticket</div>
-<div className="col-span-2 text-center">Renda</div>
-<div className="col-span-2 text-center">Data</div>
-<div className="col-span-2 text-center">Hora</div>
-<div className="col-span-1 text-right">Ação</div>
-</div>
+                {/* Header Labels - Desktop only */}
+                <div className="hidden md:grid grid-cols-12 gap-0 px-8 py-4 text-[10px] font-black text-white/10 uppercase tracking-[0.2em] border-b border-white/5 bg-white/[0.01]">
+                  <div className="col-span-3">Identificação</div>
+                  <div className="col-span-2 text-center">Ticket</div>
+                  <div className="col-span-2 text-center">Renda</div>
+                  <div className="col-span-2 text-center">Data</div>
+                  <div className="col-span-2 text-center">Hora</div>
+                  <div className="col-span-1 text-right">Ação</div>
+                </div>
 {/* Card List */}
 <div className="space-y-2 mt-4">
 {leads.filter(lead => {
@@ -216,77 +220,87 @@ if (crmFilter === 'inelegivel') return statusLower.includes('inelegível');
 if (crmFilter === 'triagem') return statusLower.includes('triagem');
 return true;
 }).map((lead, i) => {
-    const dateObj = new Date(lead.updated_at || lead.created_at);
-    const formattedDate = dateObj.toLocaleDateString('pt-BR');
-    const formattedTime = dateObj.toLocaleTimeString('pt-BR');
     return (
-<motion.div
-key={i}
-initial={{ opacity: 0, x: -10 }}
-animate={{ opacity: 1, x: 0 }}
-transition={{ delay: i * 0.03 }}
-className={cn(
-"bg-white/[0.02] border border-white/5 rounded-xl px-8 py-3 hover:bg-white/[0.05] hover:border-white/10 transition-all group relative overflow-hidden",
-lead.status === 'Ticket ALTO' && "border-green-500/40 bg-green-500/[0.03]"
-)}
->
-{/* Pulse Effect for Ticket Alto */}
-{lead.status === 'Ticket ALTO' && (
-<motion.div
-animate={{
-opacity: [0.1, 0.4, 0.1],
-scale: [1, 1.02, 1],
-}}
-transition={{
-repeat: Infinity,
-duration: 2,
-ease: "easeInOut"
-}}
-className="absolute inset-0 bg-green-500/10 pointer-events-none"
-/>
-)}
-<div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundImage: `linear-gradient(to bottom, ${lead.color}, transparent)` }} />
-<div className="grid grid-cols-12 gap-0 items-center relative z-10">
-{/* Identificação (Nome + CPF) */}
-<div className="col-span-3 flex items-center gap-3 overflow-hidden">
-<div className="min-w-0">
-<p className="text-sm font-bold text-white group-hover:text-brand-primary transition-colors truncate">{lead.name}</p>
-<p className="text-[10px] text-white/20 font-mono flex items-center gap-1.5">
-<span className="opacity-50">CPF:</span> {lead.cpf}
-</p>
-</div>
-</div>
-{/* Ticket Status */}
-<div className="col-span-2 flex justify-center">
-<span
-className="px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-2"
-style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px solid ${lead.color}25` }}
->
-<div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: lead.color }} />
-{lead.status === 'Ticket ALTO' ? 'ALTO' : lead.status === 'Ticket BAIXO' ? 'BAIXO' : lead.status.toUpperCase()}
-</span>
-</div>
-{/* Renda */}
-<div className="col-span-2 text-center">
-<span className="text-xs font-bold text-white/40 font-mono tracking-tighter">{lead.income}</span>
-</div>
-{/* Data */}
-<div className="col-span-2 text-center text-[10px] font-bold text-white/30 whitespace-nowrap">
-{lead.date}
-</div>
-{/* Hora */}
-<div className="col-span-2 text-center text-[10px] text-white/10 font-mono">
-{lead.time}
-</div>
-{/* WhatsApp Button */}
-<div className="col-span-1 text-right flex justify-end">
-<button className="p-2 bg-[#25d366]/5 border border-[#25d366]/10 rounded-lg text-[#25d366] hover:bg-[#25d366] hover:text-white transition-all shadow-lg active:scale-95 group-hover:shadow-[#25d366]/20">
-<MessageCircle size={14} className="fill-current" />
-</button>
-</div>
-</div>
-</motion.div>
-))}
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.03 }}
+              className={cn(
+                "bg-white/[0.02] border border-white/5 rounded-xl hover:bg-white/[0.05] hover:border-white/10 transition-all group relative overflow-hidden",
+                lead.status === 'Ticket ALTO' && "border-green-500/40 bg-green-500/[0.03]"
+              )}
+            >
+              {lead.status === 'Ticket ALTO' && (
+                <motion.div
+                  animate={{ opacity: [0.1, 0.4, 0.1], scale: [1, 1.02, 1] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  className="absolute inset-0 bg-green-500/10 pointer-events-none"
+                />
+              )}
+              <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b opacity-0 group-hover:opacity-100 transition-opacity" style={{ backgroundImage: `linear-gradient(to bottom, ${lead.color}, transparent)` }} />
+
+              {/* MOBILE CARD LAYOUT */}
+              <div className="md:hidden px-4 py-3 relative z-10">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-bold text-white truncate flex-1">{lead.name}</p>
+                  <span
+                    className="ml-2 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-1 flex-shrink-0"
+                    style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px solid ${lead.color}25` }}
+                  >
+                    <div className="w-1 h-1 rounded-full" style={{ backgroundColor: lead.color }} />
+                    {lead.status === 'Ticket ALTO' ? 'ALTO' : lead.status === 'Ticket BAIXO' ? 'BAIXO' : lead.status.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] text-white/30 font-mono">{lead.phone}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-white/20">{new Date(lead.updated_at || lead.created_at).toLocaleDateString('pt-BR')}</span>
+                    <a
+                      href={`https://wa.me/${lead.phone}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 bg-[#25d366]/10 border border-[#25d366]/20 rounded-lg text-[#25d366]"
+                    >
+                      <MessageCircle size={14} className="fill-current" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* DESKTOP TABLE LAYOUT */}
+              <div className="hidden md:grid grid-cols-12 gap-0 items-center relative z-10 px-8 py-3">
+                <div className="col-span-3 flex items-center gap-3 overflow-hidden">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white group-hover:text-brand-primary transition-colors truncate">{lead.name}</p>
+                    <p className="text-[10px] text-white/20 font-mono flex items-center gap-1.5">
+                      <span className="opacity-50">CPF:</span> {lead.cpf}
+                    </p>
+                  </div>
+                </div>
+                <div className="col-span-2 flex justify-center">
+                  <span
+                    className="px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-wider flex items-center gap-2"
+                    style={{ backgroundColor: `${lead.color}15`, color: lead.color, border: `1px solid ${lead.color}25` }}
+                  >
+                    <div className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: lead.color }} />
+                    {lead.status === 'Ticket ALTO' ? 'ALTO' : lead.status === 'Ticket BAIXO' ? 'BAIXO' : lead.status.toUpperCase()}
+                  </span>
+                </div>
+                <div className="col-span-2 text-center">
+                  <span className="text-xs font-bold text-white/40 font-mono tracking-tighter">{lead.income}</span>
+                </div>
+                <div className="col-span-2 text-center text-[10px] font-bold text-white/30 whitespace-nowrap">{new Date(lead.updated_at || lead.created_at).toLocaleDateString('pt-BR')}</div>
+                <div className="col-span-2 text-center text-[10px] text-white/10 font-mono">{new Date(lead.updated_at || lead.created_at).toLocaleTimeString('pt-BR')}</div>
+                <div className="col-span-1 text-right flex justify-end">
+                  <button className="p-2 bg-[#25d366]/5 border border-[#25d366]/10 rounded-lg text-[#25d366] hover:bg-[#25d366] hover:text-white transition-all shadow-lg active:scale-95 group-hover:shadow-[#25d366]/20">
+                    <MessageCircle size={14} className="fill-current" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+    );
+})}
 </div>
 </div>
 </div>
